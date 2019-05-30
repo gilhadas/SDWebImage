@@ -244,6 +244,13 @@ static NSString *const kCompletedCallbackKey = @"completed";
         }
     });
 }
+- (id <SDWebImageOperation>)downloadFileWithURL:(NSURL *)url options:(SDWebImageDownloaderOptions)options progress:(SDWebImageDownloaderProgressBlock)progressBlock completed:(SDWebImageDownloaderCompletedBlock)completedBlock {
+    __block SDWebImageDownloaderOperation *operation;
+    __weak __typeof(self)wself = self;
+    operation = [self downloadImageWithURL:url options:options progress:progressBlock completed:completedBlock];
+    operation.isGenericFile = YES;
+    return operation;
+}
 
 - (void)setSuspended:(BOOL)suspended {
     [self.downloadQueue setSuspended:suspended];

@@ -283,7 +283,12 @@ didReceiveResponse:(NSURLResponse *)response
 
 - (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask didReceiveData:(NSData *)data {
     [self.imageData appendData:data];
-
+    if(self.isGenericFile) {
+        if (self.progressBlock) {
+            self.progressBlock(self.imageData.length, self.expectedSize);
+        }
+        return;
+    }
     if ((self.options & SDWebImageDownloaderProgressiveDownload) && self.expectedSize > 0 && self.completedBlock) {
         // The following code is from http://www.cocoaintheshell.com/2011/05/progressive-images-download-imageio/
         // Thanks to the author @Nyx0uf
@@ -414,6 +419,14 @@ didReceiveResponse:(NSURLResponse *)response
             if (self.options & SDWebImageDownloaderIgnoreCachedResponse && responseFromCached && [[NSURLCache sharedURLCache] cachedResponseForRequest:self.request]) {
                 completionBlock(nil, nil, nil, YES);
             } else if (self.imageData) {
+                
+                if(self.isGenericFile) {
+                    completionBlock(nil, self.imageData, nil, YES);
+                    self.completionBlock = nil;
+                    [self done];
+                    return;
+                }
+                
                 UIImage *image = [UIImage sd_imageWithData:self.imageData];
                 NSString *key = [[SDWebImageManager sharedManager] cacheKeyForURL:self.request.URL];
                 image = [self scaledImageForKey:key image:image];
