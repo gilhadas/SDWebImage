@@ -69,6 +69,7 @@ static NSString *const kCompletedCallbackKey = @"completed";
         _executionOrder = SDWebImageDownloaderFIFOExecutionOrder;
         _downloadQueue = [NSOperationQueue new];
         _downloadQueue.maxConcurrentOperationCount = 6;
+        _downloadQueue.name = @"com.hackemist.SDWebImageDownloader";
         _URLCallbacks = [NSMutableDictionary new];
 #ifdef SD_WEBP
         _HTTPHeaders = [@{@"Accept": @"image/webp,image/*;q=0.8"} mutableCopy];
@@ -242,6 +243,13 @@ static NSString *const kCompletedCallbackKey = @"completed";
             createCallback();
         }
     });
+}
+- (id <SDWebImageOperation>)downloadFileWithURL:(NSURL *)url options:(SDWebImageDownloaderOptions)options progress:(SDWebImageDownloaderProgressBlock)progressBlock completed:(SDWebImageDownloaderCompletedBlock)completedBlock {
+    __block SDWebImageDownloaderOperation *operation;
+    __weak __typeof(self)wself = self;
+    operation = [self downloadImageWithURL:url options:options progress:progressBlock completed:completedBlock];
+    operation.isGenericFile = YES;
+    return operation;
 }
 
 - (void)setSuspended:(BOOL)suspended {

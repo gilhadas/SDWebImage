@@ -73,7 +73,7 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
             completed:(SDWebImageDownloaderCompletedBlock)completedBlock
             cancelled:(SDWebImageNoParamsBlock)cancelBlock {
     if ((self = [super init])) {
-        _request = request;
+        _request = [request copy];
         _shouldDecompressImages = YES;
         _options = options;
         _progressBlock = [progressBlock copy];
@@ -283,7 +283,12 @@ didReceiveResponse:(NSURLResponse *)response
 
 - (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask didReceiveData:(NSData *)data {
     [self.imageData appendData:data];
-
+    if(self.isGenericFile) {
+        if (self.progressBlock) {
+            self.progressBlock(self.imageData.length, self.expectedSize);
+        }
+        return;
+    }
     if ((self.options & SDWebImageDownloaderProgressiveDownload) && self.expectedSize > 0 && self.completedBlock) {
         // The following code is from http://www.cocoaintheshell.com/2011/05/progressive-images-download-imageio/
         // Thanks to the author @Nyx0uf
@@ -404,14 +409,24 @@ didReceiveResponse:(NSURLResponse *)response
     } else {
         SDWebImageDownloaderCompletedBlock completionBlock = self.completedBlock;
         
-        if (![[NSURLCache sharedURLCache] cachedResponseForRequest:_request]) {
-            responseFromCached = NO;
-        }
-        
         if (completionBlock) {
-            if (self.options & SDWebImageDownloaderIgnoreCachedResponse && responseFromCached) {
+            /**
+             *  See #1608 and #1623 - apparently, there is a race condition on `NSURLCache` that causes a crash
+             *  Limited the calls to `cachedResponseForRequest:` only for cases where we should ignore the cached response
+             *    and images for which responseFromCached is YES (only the ones that cannot be cached).
+             *  Note: responseFromCached is set to NO inside `willCacheResponse:`. This method doesn't get called for large images or images behind authentication 
+             */
+            if (self.options & SDWebImageDownloaderIgnoreCachedResponse && responseFromCached && [[NSURLCache sharedURLCache] cachedResponseForRequest:self.request]) {
                 completionBlock(nil, nil, nil, YES);
             } else if (self.imageData) {
+                
+                if(self.isGenericFile) {
+                    completionBlock(nil, self.imageData, nil, YES);
+                    self.completionBlock = nil;
+                    [self done];
+                    return;
+                }
+                
                 UIImage *image = [UIImage sd_imageWithData:self.imageData];
                 NSString *key = [[SDWebImageManager sharedManager] cacheKeyForURL:self.request.URL];
                 image = [self scaledImageForKey:key image:image];
